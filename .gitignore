@@ -1,0 +1,46 @@
+# ROS 2 colcon build 결과
+build/
+install/
+log/
+
+# 대용량 vendor 에셋 — 용량 상위 20개 점검 결과 (2026-09-17)
+# Isaac Sim 전용 USD (ROS2/Gazebo 빌드·실행에 불필요, 12개 49M)
+src/**/*.usd
+# 데모용 GIF (dsr_realtime_control 예제 자산, 33M)
+src/doosan-robot2/dsr_example2/dsr_realtime_control/assets/m1013_GravityCompensation.gif
+
+# 이 프로젝트가 쓰지 않는 다른 로봇 모델 meshes (실사용 m0609 + 공용 launch 기본값 m1013만 유지, 약 152M)
+src/doosan-robot2/dsr_description2/meshes/a0509*/
+src/doosan-robot2/dsr_description2/meshes/a0912*/
+src/doosan-robot2/dsr_description2/meshes/e0509*/
+src/doosan-robot2/dsr_description2/meshes/h2017*/
+src/doosan-robot2/dsr_description2/meshes/h2515*/
+src/doosan-robot2/dsr_description2/meshes/m0617*/
+src/doosan-robot2/dsr_description2/meshes/m1509*/
+src/doosan-robot2/dsr_description2/meshes/p3020*/
+src/doosan-robot2/dsr_gazebo2/model/a0509/
+src/doosan-robot2/dsr_gazebo2/model/a0912/
+src/doosan-robot2/dsr_gazebo2/model/h2017/
+src/doosan-robot2/dsr_gazebo2/model/h2515/
+src/doosan-robot2/dsr_gazebo2/model/m0617/
+src/doosan-robot2/dsr_gazebo2/model/m1509/
+# MuJoCo 모델 — 미사용 로봇 (m0609/m1013/2f85/demo만 유지, 약 30M)
+# 디렉터리 자체는 dsr_description2 CMake install(DIRECTORY mujoco_models)가 요구하므로 통째로 빼지 않는다
+src/doosan-robot2/dsr_description2/mujoco_models/a0509/
+src/doosan-robot2/dsr_description2/mujoco_models/a0912/
+src/doosan-robot2/dsr_description2/mujoco_models/e0509/
+src/doosan-robot2/dsr_description2/mujoco_models/h2017/
+src/doosan-robot2/dsr_description2/mujoco_models/h2515/
+src/doosan-robot2/dsr_description2/mujoco_models/m0617/
+src/doosan-robot2/dsr_description2/mujoco_models/m1509/
+# servicepack 예제 모델 (CMake install 대상 아님, 13M)
+src/doosan-robot2/dsr_common2/servicepack/model/
+# 벤더 매뉴얼 PDF (setup.py data_files 미포함, 5M)
+src/onrobot-ros2/onrobot_rg_control/onrobot_rg_control/User_Manual.pdf
+
+# 포트폴리오 추출 작업문서 (로컬 전용)
+PORTFOLIO_MAP.md
+PORTFOLIO_SOURCE.md
+PORTFOLIO_EXTRACTION_GUIDE.md
+SKILL_INVENTORY.md
+CLAUDE.md

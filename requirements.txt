@@ -1,0 +1,26 @@
+# =============================================================================
+# 협동 로봇 핸드드립 커피 자동화 (Team SPIRAL BUCKS, F-3)
+# Python 3.10.12 / Ubuntu 22.04 / ROS 2 Humble
+#
+#   pip3 install -r requirements.txt
+#
+# 주의: rclpy, std_msgs, sensor_msgs, dsr_msgs2, dsr_common2, onrobot_rg_msgs 는
+#       pip 패키지가 아니라 ROS 2 / colcon 워크스페이스에서 제공됩니다.
+#       -> rosdep install -r --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y
+# =============================================================================
+
+# --- Web UI / API 서버 (rokey/web_ui.py) ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+
+# --- 궤적 연산 · 회전행렬 수학 (rokey/coffee_system.py) ---
+# 나선 경로 등호길이 재표본화, ZYZ 오일러 <-> 회전행렬 변환에 사용
+numpy>=1.21.5
+
+# --- OnRobot RG2 그리퍼 Modbus TCP 드라이버 ---
+# onrobot_rg_control/setup.py 기준 핀 버전
+pymodbus==3.6.9
+
+# --- (선택) 궤적 검증 · 디버깅 플롯 ---
+matplotlib>=3.5.1

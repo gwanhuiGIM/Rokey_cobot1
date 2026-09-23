@@ -1,0 +1,105 @@
+/**:
+  controller_manager:
+    ros__parameters:
+      update_rate: 100  # Hz
+
+      joint_state_broadcaster:
+        type: joint_state_broadcaster/JointStateBroadcaster
+      
+      dsr_moveit_controller:
+        type: joint_trajectory_controller/JointTrajectoryController
+
+      dsr_controller2:
+        type: dsr_controller2/RobotController
+
+      dsr_joint_trajectory:
+        type: dsr_joint_trajectory/RobotController
+
+      dsr_joint_publisher:
+        type: joint_state_controller/JointStateController
+
+      dsr_position_controller:
+        type: forward_command_controller/ForwardCommandController
+
+  dsr_controller2:
+    ros__parameters:
+      joints:
+        - joint_1
+        - joint_2
+        - joint_3
+        - joint_4
+        - joint_5
+        - joint_6
+
+      # rt_data topic argument
+      # Robot RT output is configured at 1 ms in dsr_hardware2.  Publishing
+      # every selected field at 1 kHz can overrun a non-real-time ROS 2
+      # executor, so expose the latest sample at 5 ms (target 200 Hz).
+      use_rt_topic_pub: true
+      rt_timer_ms: 5                       # ms, target 200 Hz (best effort)
+      rt_topic_keys:                       # Field names available for RT publishing (see extract_field() in dsr_controller2.cpp)
+        - actual_joint_position
+        - actual_joint_velocity
+        - actual_tcp_position
+        - actual_tcp_velocity
+        - singularity
+        - robot_state
+        - jacobian_matrix
+        - actual_joint_torque
+        - external_joint_torque
+        - external_tcp_force
+        - gravity_torque
+
+  dsr_position_controller:
+    ros__parameters:
+      joints:
+        - joint_1
+        - joint_2
+        - joint_3
+        - joint_4
+        - joint_5
+        - joint_6
+      interface_name: position
+
+      # command_interfaces:
+      #   - position
+      #   - velocity
+
+      # state_interfaces:
+      #   - position
+      #   - velocity
+
+  dsr_joint_trajectory:
+    ros__parameters:
+      joints:
+        - joint_1
+        - joint_2
+        - joint_3
+        - joint_4
+        - joint_5
+        - joint_6
+
+      command_interfaces:
+        - position
+        - velocity
+
+      state_interfaces:
+        - position
+        - velocity
+
+  dsr_moveit_controller:
+    ros__parameters:
+      command_interfaces:
+        - position
+        - velocity
+      state_interfaces:
+        - position
+        - velocity
+      joints:
+        - joint_1
+        - joint_2
+        - joint_3
+        - joint_4
+        - joint_5
+        - joint_6
+

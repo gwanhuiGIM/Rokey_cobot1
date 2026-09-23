@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ROKEY 단계 테스트</title>
+<style>
+:root{--canvas:#f2f0eb;--surface:#fff;--green:#006241;--accent:#00754a;--house:#1e3932;--mint:#d4e9e2;--red:#c82014;--text:#222;--soft:#6b6b6b;--line:rgba(0,0,0,.1)}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--canvas);color:var(--text);font-family:"Helvetica Neue",Pretendard,"Noto Sans KR",Arial,sans-serif}
+.shell{width:min(1160px,calc(100% - 32px));margin:0 auto;padding:24px 0 48px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:20px 24px;border-radius:14px;background:var(--house);color:#fff}
+.brand{font-size:21px;font-weight:700;letter-spacing:.06em}.sub{margin-top:5px;color:rgba(255,255,255,.7);font-size:13px}
+.conn{padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.12);font-size:13px;font-weight:700}.conn.on{background:var(--accent)}
+.warning{margin:20px 0;padding:18px 20px;border-left:5px solid var(--red);border-radius:10px;background:#fff8f7;line-height:1.65}
+.toolbar{display:flex;align-items:center;gap:12px;margin:20px 0;padding:16px 18px;border-radius:12px;background:var(--surface)}
+.toolbar label{font-size:14px;font-weight:700}.toolbar select{min-height:42px;padding:0 14px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit}
+.speed-tool{display:grid;grid-template-columns:auto minmax(180px,1fr) 58px;align-items:center;gap:10px;flex:1;min-width:280px;padding-left:12px;border-left:1px solid var(--line)}
+.speed-tool input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}.speed-value{color:var(--accent);font-weight:800;text-align:right}.speed-note{grid-column:2/4;color:var(--soft);font-size:12px;line-height:1.35}
+.test-speed-log{margin:14px 0 0;padding:14px;overflow:auto;border-radius:10px;background:#102c25;color:#dff6ec;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.card{display:flex;min-height:220px;flex-direction:column;padding:22px;border-radius:14px;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.16)}
+.code{color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.12em}.card h2{margin:14px 0 8px;color:var(--house);font-size:24px}.card p{margin:0;color:var(--soft);font-size:14px;line-height:1.65}
+.card button{margin-top:auto;min-height:46px;border:0;border-radius:999px;background:var(--accent);color:#fff;font:inherit;font-weight:700;cursor:pointer}.card button:hover{background:var(--green)}.card button:disabled{cursor:not-allowed;opacity:.45}
+.state{margin-top:20px;padding:20px;border-radius:14px;background:var(--house);color:#fff}.state-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.item{padding:14px;border-radius:10px;background:rgba(255,255,255,.08)}.item span{display:block;color:rgba(255,255,255,.65);font-size:12px}.item strong{display:block;margin-top:6px;font-size:15px;word-break:break-word}
+.result{min-height:24px;margin-top:16px;font-size:14px;font-weight:700}.result.error{color:#ffd3ce}.result.ok{color:#b8f2da}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.state-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.top{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr}.toolbar{align-items:flex-start;flex-direction:column}.state-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top"><div><div class="brand">ROKEY STAGE TEST</div><div class="sub">M0609 실제 로봇 공정 단독 실행</div></div><div id="conn" class="conn">제어 노드 연결 대기</div></header>
+<div class="warning"><strong>실제 로봇이 즉시 움직입니다.</strong><br>선택한 단계의 모든 물체를 해당 단계 시작 위치에 배치하고 작업 공간을 비운 뒤 실행하십시오. 각 테스트가 끝나면 프로그램은 종료되지 않고 다시 테스트 대기 상태로 돌아갑니다.</div>
+<div class="toolbar">
+<label for="turns">그라인더 테스트 회전 수</label><select id="turns"><option value="3">3회전 · 굵게</option><option value="5">5회전 · 중간 굵게</option><option value="7">7회전 · 중간 곱게</option><option value="10">10회전 · 곱게</option></select>
+<label for="gripper-open-mode">그리퍼 열기 프리셋</label><select id="gripper-open-mode"><option value="spoon_cup">스푼·컵 열기 · DO1 OFF / DO2 OFF</option><option value="jar">병 열기 · DO1 OFF / DO2 ON</option><option value="handle">손잡이 열기 · DO1 ON / DO2 ON</option></select>
+<div class="speed-tool"><label for="test-speed">전체 공정 속도</label><input id="test-speed" type="range" min="10" max="100" step="1" value="100"><strong id="test-speed-value" class="speed-value">100%</strong><div id="test-speed-note" class="speed-note">실행 중에도 변경할 수 있습니다.</div></div>
+</div>
+<div class="grid">
+<article class="card"><div class="code">FULL SEQUENCE</div><h2>전체 공정</h2><p>원두 투입부터 최종 드립까지 정상 순서로 실행합니다. 분쇄 회전 수는 위 선택값을 사용합니다.</p><button data-stage="full_sequence">전체 공정 시작</button></article>
+<article class="card"><div class="code">BEAN DROP</div><h2>원두 투입</h2><p>스푼 접근, 파지 확인, 원두 투입, 스푼 반환 동작만 실행합니다.</p><button data-stage="bean_drop">원두 투입 시작</button></article>
+<article class="card"><div class="code">GRINDER</div><h2>그라인더</h2><p>손잡이 파지 확인 후 선택한 회전 수만큼 분쇄 동작을 실행합니다.</p><button data-stage="grinder">그라인더 시작</button></article>
+<article class="card"><div class="code">DRIPPER IN</div><h2>필터 투입</h2><p>분쇄 원두 병을 파지하고 필터 투입 및 외력 확인 과정을 실행합니다.</p><button data-stage="dripper_in">필터 투입 시작</button></article>
+<article class="card"><div class="code">SPIRAL POUR</div><h2>스파이럴 드립</h2><p>주전자 파지부터 보상 내향 스파이럴, 주전자 반환까지 실행합니다.</p><button data-stage="spiral_pour">스파이럴 시작</button></article>
+<article class="card"><div class="code">FINAL DRIP</div><h2>최종 드립</h2><p>필터 홀더와 물컵 파지, mug TCP 고정 물 붓기와 반대 J6 복귀를 실행합니다.</p><button data-stage="final_drip">최종 드립 시작</button></article>
+<article class="card"><div class="code">GRIPPER OPEN</div><h2>그리퍼 열기</h2><p>위에서 선택한 DO 프리셋으로 RG2를 열고 0.5초 동안 정착을 기다립니다. 로봇 관절은 움직이지 않습니다.</p><button data-stage="gripper_open">그리퍼 열기</button></article>
+<article class="card"><div class="code">GRIPPER CLOSE</div><h2>그리퍼 닫기</h2><p>DO1 ON / DO2 OFF 조합으로 RG2를 닫고 0.5초 동안 정착을 기다립니다. 파지 성공 판정 없이 입출력 동작만 시험합니다.</p><button data-stage="gripper_close">그리퍼 닫기</button></article>
+</div>
+<section class="state"><div class="state-grid">
+<div class="item"><span>현재 phase</span><strong id="phase">-</strong></div>
+<div class="item"><span>현재 화면</span><strong id="screen">-</strong></div>
+<div class="item"><span>테스트 단계</span><strong id="stage">-</strong></div>
+<div class="item"><span>실행 상태</span><strong id="recovery">테스트 대기</strong></div>
+</div><div id="result" class="result"></div><pre id="test-speed-log" class="test-speed-log">속도 변경 로그 대기</pre></section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let latest={};
+let testSpeedDragging=false;
+let testSpeedTimer=null;
+async function setTestSpeed(value){
+  const speed=Math.min(100,Math.max(10,Math.round(Number(value)||100)));
+  $('test-speed-value').textContent=speed+'%';
+  $('test-speed-note').textContent='속도 변경 명령 전송 중...';
+  try{
+    const response=await fetch('/api/control/speed',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({speed_percent:speed})
+    });
+    const data=await response.json();
+    if(!response.ok) throw new Error(data.detail||'속도 변경 실패');
+    $('test-speed-note').textContent='전체 공정 속도 '+data.speed_percent+'% 적용 요청 완료';
+  }catch(error){
+    $('test-speed-note').textContent=error.message;
+  }
+}
+function setButtons(){
+  const connected=!!latest.control_connected;
+  const busy=!!latest.busy;
+  document.querySelectorAll('button[data-stage]').forEach(button=>{
+    button.disabled=!connected||busy;
+  });
+}
+function render(s){
+  latest=s||{};
+  const connected=!!latest.control_connected;
+  $('conn').classList.toggle('on',connected);
+  $('conn').textContent=connected?'제어 노드 연결됨':'제어 노드 연결 대기';
+  $('phase').textContent=latest.phase||'-';
+  $('screen').textContent=String(latest.screen||'-');
+  $('stage').textContent=latest.test_stage_name||'선택 전';
+  const phase=latest.phase||'';
+  $('recovery').textContent=phase==='TEST_DONE'
+    ? '완료 · 대기 상태 전환 중'
+    : (phase==='TEST_ERROR'?'오류 · 대기 상태 전환 중':(latest.busy?'실행 중':'다음 테스트 대기'));
+  const speed=Math.min(100,Math.max(10,Number(latest.operation_speed_percent||100)));
+  if(!testSpeedDragging){
+    $('test-speed').value=String(Math.round(speed));
+    $('test-speed-value').textContent=Math.round(speed)+'%';
+  }
+  if(latest.speed_update_error){
+    $('test-speed-note').textContent=latest.speed_update_error;
+  }else if(latest.speed_update_pending){
+    $('test-speed-note').textContent='속도 변경 적용 중...';
+  }else if(latest.speed_service_ready){
+    $('test-speed-note').textContent='현재 작동 속도 '+Math.round(speed)+'%';
+  }
+  const speedLog=Array.isArray(latest.speed_change_log)?latest.speed_change_log:[];
+  $('test-speed-log').textContent=speedLog.length
+    ? speedLog.join('\n')
+    : '속도 변경 로그 대기';
+  if(latest.test_command_error){
+    $('result').className='result error';
+    $('result').textContent=latest.test_command_error;
+  }
+  setButtons();
+}
+async function poll(){
+  try{render(await (await fetch('/api/state')).json())}catch(e){}
+  setTimeout(poll,250);
+}
+async function startStage(stage){
+  const result=$('result');
+  result.className='result';
+  result.textContent='명령 전송 중...';
+  try{
+    const response=await fetch('/api/test/start',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        stage,
+        grind_turns:Number($('turns').value),
+        gripper_open_mode:$('gripper-open-mode').value
+      })
+    });
+    const data=await response.json();
+    if(!response.ok) throw new Error(data.detail||'명령 전송 실패');
+    result.className='result ok';
+    const detail=stage==='gripper_open'?' · '+data.gripper_open_mode_name:'';
+    result.textContent=data.stage_name+detail+' 테스트 명령을 전송했습니다.';
+  }catch(error){
+    result.className='result error';
+    result.textContent=error.message;
+  }
+}
+$('test-speed').addEventListener('pointerdown',()=>{testSpeedDragging=true});
+$('test-speed').addEventListener('pointerup',()=>{testSpeedDragging=false;setTestSpeed($('test-speed').value)});
+$('test-speed').addEventListener('input',()=>{
+  $('test-speed-value').textContent=$('test-speed').value+'%';
+  clearTimeout(testSpeedTimer);
+  testSpeedTimer=setTimeout(()=>setTestSpeed($('test-speed').value),140);
+});
+$('test-speed').addEventListener('change',()=>setTestSpeed($('test-speed').value));
+document.querySelectorAll('button[data-stage]').forEach(button=>{
+  button.addEventListener('click',()=>startStage(button.dataset.stage));
+});
+poll();
+</script>
+</body>
+</html>
