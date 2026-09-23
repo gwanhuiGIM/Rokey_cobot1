@@ -283,7 +283,7 @@ __all__ = ["main"]
 
 > 교시 좌표는 `System.drvar` 원본 기준(`System_spoon_j/l`, `System_grinder_j/l`, `System_handle_j/l`, `System_bottle_j_1/j_2/l/l2`,
 > `System_drip_j/l`, `System_home`, `System_pot_grip`, `Pour_start_joint`, `System_fitter_j`, `System_filtter_l/l2`, `System_mug_j/l`, `System_final_l`)이며,
-> **비전/외부 센서 없이 전량 고정 교시 좌표 기반**으로 동작합니다.
+> **비전/외부 센서 없이 전량 고정 교시 좌표 기반**으로 동작합니다 .
 
 ### 3-3. 워크스페이스 배치도 (Workcell Layout)
 
