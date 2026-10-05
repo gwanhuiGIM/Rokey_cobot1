@@ -1,12 +1,17 @@
 # ☕ 협동로봇 핸드드립 커피 자동화 (Robot Hand-Drip Coffee System)
 
-> 출처: 두산로보틱스 ROKEY 부트캠프(지능형 로보틱스 엔지니어 과정) 협동-1 프로젝트, 5인 팀 프로젝트의 제출 스냅샷입니다. 이 저장소에서 개인이 바꾼 것은 README 정리뿐입니다.
+> 출처: 두산로보틱스 ROKEY 부트캠프(지능형 로보틱스 엔지니어 과정) 협동-1 프로젝트, 5인 팀 프로젝트의 제출 스냅샷입니다. 제출 코드는 그대로 두고 문서만 다시 정리했습니다.
 
 Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 과정(원두 투입 → 분쇄 → 필터 투입 → 나선 드립 → 서빙)을 자동으로 수행하는 ROS 2 시스템입니다.
 사람이 손으로 하면 매번 흔들리는 나선 푸어링을 같은 궤적으로 반복하는 것이 목표였습니다.
 **비전 센서는 쓰지 않습니다.** 위치는 모두 티치펜던트로 교시한 고정 좌표(`System.drvar` 원본, `coffee/config.py`)이고, 성공·실패 판정은 힘·그리퍼 신호·통신 상태로만 합니다.
 
-> **핵심 설계**: 공정 단계(`stages/*.py`)는 `RobotContext` 하나만 인자로 받고 `DSR_ROBOT2`를 직접 import하지 않습니다. 모든 단계는 `run_protected_stage()`로 감싸여 있습니다. 그리퍼 파지 실패나 통신 두절이 나면 사이클 전체가 아니라 **실패한 단계만** 처음부터 다시 실행합니다. 재시작 전에는 작업자가 물리 버튼으로 승인합니다.
+**핵심 기능**
+- **5단계 자동 공정** — `coffee_system` 노드(`coffee/app.py`)가 `stages/*.py` 다섯 단계를 차례로 실행합니다. 각 단계는 `RobotContext` 하나만 인자로 받고 `DSR_ROBOT2`를 직접 import하지 않습니다.
+- **파지 판정과 통신 워치독** — `grip_monitor.py`가 RG2 신호로 파지 성공을 판정하고, 신호가 끊기면 로봇 정지를 요청합니다.
+- **단계 단위 복구** — 모든 단계는 `recovery.py`의 `run_protected_stage()`로 감싸여 있습니다. 파지 실패나 통신 두절이 나면 사이클 전체가 아니라 **실패한 단계만** 처음부터 다시 실행하고, 재시작 전에는 작업자가 물리 버튼으로 승인합니다.
+- **나선 드립 궤적** — `spiral_pour.py`·`geometry.py`가 위치와 주전자 기울기를 함께 담은 6D 경유점을 만들어 `movesx` 한 번으로 실행합니다.
+- **웹 UI · 관리자 화면** — `web_ui` 노드(`web/app.py`)가 공정 상태 표시, 단계별 테스트, 소프트 E-Stop·Jog를 브라우저로 제공합니다.
 
 ```
  물리 버튼 DI13~16 ─┐                       ┌──────────── dsr_controller2 (M0609, TCP/IP)
@@ -86,7 +91,7 @@ TEST_READY ──(DI13~16)──► BEAN_SELECTED ─► bean_drop ─► [굵�
 - gSTA 세이프티 비트가 켜짐
 - 한 번도 수신하지 못함
 
-이 감시는 **단계가 실행 중일 때만** 정지를 요청합니다. 모든 모션 API(`movej`/`movel`/`movec`/`amovec`/`movesx`/`amovel`/`move_periodic`)는 호출 앞뒤에서 래치 상태를 확인하도록 감싸져 있습니다(`RobotApi.guard_motion`). 따라서 래치가 걸린 뒤 새 모션 명령은 예외로 끊깁니다.
+이 감시는 **단계가 실행 중일 때만** 정지를 요청합니다. 모든 모션 API(`movej`/`movel`/`movec`/`amovec`/`movesx`/`amovel`/`move_periodic`)는 `RobotApi.guard_motion`이 호출 앞뒤에서 래치 상태를 검사합니다. 래치가 걸린 뒤의 새 모션 명령은 예외를 발생시켜 차단합니다.
 
 <p align="center">
   <img src="./images/gripper_signal_timeline.png" alt="신호 두절 감지 → 정지" width="760">
@@ -108,7 +113,7 @@ TEST_READY ──(DI13~16)──► BEAN_SELECTED ─► bean_drop ─► [굵�
 Doosan 내장 `move_spiral()`에는 자세(A, B, C) 인자가 없습니다. 그래서 나선 이동과 주전자 기울임을 하나의 명령으로 표현할 수 없습니다. 대신 다음 순서로 경로를 직접 만듭니다.
 1. 위치는 삼각함수로, 자세는 회전행렬로 계산해 6D 경유점을 만듭니다.
 2. 4,000개 임시점을 누적 이동거리 기준 등간격 100개로 재표본화합니다.
-3. 기울기는 5차 smoothstep(`10u³−15u⁴+6u⁵`)으로 blend합니다.
+3. 기울기는 5차 smoothstep(`10u³−15u⁴+6u⁵`) 함수로 부드럽게 보간합니다.
 4. 실행 전에 경유점 사이 이동량이 15 mm / 5° 이내인지 검사합니다(`MOVESX_MAX_*`).
 
 `geometry.py`는 ROS·로봇을 import하지 않는 순수 수학 모듈입니다.
@@ -118,13 +123,13 @@ Doosan 내장 `move_spiral()`에는 자세(A, B, C) 인자가 없습니다. 그�
 </p>
 
 ### 웹 UI와 모니터 — `web_ui` (`rokey/web/`, `rokey/monitor_pjt/`)
-`web/app.py`의 lifespan은 `CoffeeWebBridge`와 `SystemMonitor`를 `MultiThreadedExecutor`에 함께 올립니다. 브라우저 쪽에서는 다음이 동작합니다.
+FastAPI 앱(`web/app.py`)이 시작될 때(`lifespan`) `CoffeeWebBridge`와 `SystemMonitor`를 `MultiThreadedExecutor`에 등록해 함께 구동합니다. 브라우저 쪽에서는 다음이 동작합니다.
 - `/ws` WebSocket으로 상태 변경분을 0.2 s 간격으로 push합니다.
 - 공정 속도를 10~100% 사이에서 바꿀 수 있습니다(`motion/change_operation_speed`).
 - `/test`·`/admin`과 그 API는 접속 주소가 `127.0.0.1`/`::1`일 때만 허용합니다.
 
 <details>
-<summary>모듈 계층표 (<code>rokey/coffee/</code>, 줄 수는 2026-10-05 <code>wc -l</code> 기준)</summary>
+<summary>모듈 계층표 (<code>rokey/coffee/</code>)</summary>
 
 | 계층 | 모듈 | 역할 | 줄 |
 |:---:|:---|:---|---:|
@@ -201,7 +206,9 @@ Doosan 내장 `move_spiral()`에는 자세(A, B, C) 인자가 없습니다. 그�
     ├── onrobot-ros2/    # OnRobot RG 드라이버 (upstream, MIT)
     └── rg2/             # m0609_rg2_bringup · m0609_rg2_moveit (package.xml상 Apache-2.0, 작성자 미기재)
 ```
-저장소에 없는 것은 두 가지입니다. `src/rokey/resource/rokey` 마커 파일은 설치 단계에서 직접 만듭니다. 사용하지 않는 로봇 모델의 meshes/USD는 `.gitignore`로 제외했습니다(m0609·m1013만 유지).
+저장소 미포함 항목:
+1. `src/rokey/resource/rokey` 마커 파일 — 아래 설치 1)에서 직접 만듭니다.
+2. 사용하지 않는 로봇 모델의 meshes/USD — `.gitignore`로 제외했습니다(m0609·m1013만 유지).
 
 ## 설치
 ```bash
@@ -223,7 +230,7 @@ source install/setup.bash
 - 웹 템플릿은 `setup.py`의 `package_data`로 설치됩니다. 이 항목이 빠지면 빌드는 되지만 `/test`·`/admin`에서 `FileNotFoundError`가 납니다.
 - Real 모드 전에 `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0`을 적용합니다(UDP 특권 포트 해제).
 
-⚠️ 미검증: 이번 정리에서는 위 설치·빌드를 실행하지 않았습니다. 의존성 버전은 제출 당시 실행 PC 기준이고, 다른 PC에서 다시 확인하지 않았습니다.
+의존성 버전은 제출 당시 실행 PC 기준이며, 문서 정리 후 재설치·재빌드하지 않았습니다.
 
 ## 실행
 > ⚠️ `coffee_system`은 버튼이나 `/test` 명령이 들어오면 실제 로봇을 움직입니다. 실행 전에 확인할 것:
@@ -263,26 +270,29 @@ ros2 run rokey web_ui                  # http://localhost:8000 (/test, /admin은
 python3 -m rokey.monitor_pjt.process_state --selftest   # → "process_state self-check OK"
 python3 -m rokey.monitor_pjt.system_monitor --selftest  # → "system_monitor self-check OK"
 ```
-⚠️ 미검증(이번에 실행 안 함): 위 출력은 코드의 `print` 문을 옮긴 것이고, 실행 결과 기록은 없습니다. 공정 5단계·복구 흐름에는 자동 테스트가 없습니다. 실기 성능 검증은 하지 않았습니다.
+위 출력은 코드의 `print` 문 기준입니다(실행 기록 없음, 재실행하지 않음). 공정 5단계·복구 흐름에는 자동 테스트가 없고, 실기 성능 검증은 하지 않았습니다.
 
 ## 한계 · 미완성
-- **위치는 전량 고정 교시 좌표**입니다. 도구 위치가 바뀌면 다시 교시해야 하고, 비전으로 보정하는 기능은 없습니다.
-- **Virtual 모드로는 공정이 돌지 않을 것으로 보입니다.** virtual 모드에서는 `gripper_virtual_node`가 `/OnRobotRGInput`을 발행하지 않습니다. 그래서 단계마다 그리퍼 신호 대기에서 장비 오류로 빠질 것으로 보입니다.
-- **`/coffee_process/state`는 발행하는 노드가 없습니다.** `process_state.py`에 보고 규약과 `ProcessReporter`가 있고 `SystemMonitor`가 구독하지만, `coffee_system`은 이를 쓰지 않습니다. 따라서 `SystemMonitor` 스냅샷의 공정 진행 필드(`snapshot.py:26`)는 채워지지 않을 것으로 보입니다.
-- 단계 재시도 횟수에 상한이 없습니다. 같은 단계가 계속 실패하면 작업자가 버튼으로 승인할 때마다 반복됩니다.
-- `coffee_system`을 `Ctrl+C`로 종료해도 로봇 정지 명령은 나가지 않습니다(위 종료 절차 참고).
-- 저장소 정리 상태:
-  - `src/rokey/resource/rokey` 마커 파일이 빠져 있습니다.
-  - `__pycache__/*.pyc` 8개가 커밋돼 있습니다.
-  - `rokey` package.xml의 license·description이 `TODO`입니다.
-  - `pytest`가 없습니다.
+- **위치는 전량 고정 교시 좌표**입니다. 도구 위치가 바뀌면 다시 교시해야 하고, 비전 보정은 없습니다.
+- **`Ctrl+C`로 종료해도 로봇 정지 명령은 나가지 않고**, 단계 재시도 횟수에 상한이 없습니다(위 종료 절차 참고).
+- **Virtual 모드**: `gripper_virtual_node`가 `/OnRobotRGInput`을 발행하지 않으므로, 단계마다 그리퍼 신호 대기에서 장비 오류로 빠질 것으로 보입니다.
+- **`/coffee_process/state`는 발행하는 노드가 없습니다.** `process_state.py`의 보고 규약·`ProcessReporter`를 `coffee_system`이 쓰지 않아, `SystemMonitor` 스냅샷의 공정 진행 필드(`snapshot.py:26`)는 채워지지 않습니다(추정).
+
+<details>
+<summary>저장소 정리 상태</summary>
+
+- `src/rokey/resource/rokey` 마커 파일이 빠져 있습니다(설치 1) 참고).
+- `__pycache__/*.pyc` 8개가 커밋돼 있습니다.
+- `rokey` package.xml의 license·description이 `TODO`입니다.
+- `pytest`가 없습니다.
+</details>
 
 ## 더 읽을 문서
 | 문서 | 내용 |
 |:---|:---|
 | `docs/커피 시스템 통신 정의서.pdf` | 토픽·메시지 정의 (제출 당시 문서) |
 | `docs/coffee_system_architecture.drawio` | 시스템 구성도 원본 |
-| `images/flow_chart.png`, `images/flow_chart_detail.png` | 제출 당시 흐름도. 현재 코드 기준 흐름은 위 "시스템 구조"가 우선 |
+| `images/flow_chart.png`, `images/flow_chart_detail.png` | 제출 당시 흐름도 |
 
 ## License
 이 저장소의 프로젝트 코드(`src/rokey/`, README·문서·이미지)에는 라이선스를 부여하지 않았습니다(All rights reserved). `src/doosan-robot2/`, `src/onrobot-ros2/` 등 upstream 코드는 각 디렉터리의 LICENSE를 따릅니다. `src/rg2/`는 별도 LICENSE 파일이 없고, package.xml에 Apache-2.0으로 적혀 있습니다.
