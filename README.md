@@ -30,6 +30,10 @@ Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 �
 
 ## 무엇을 할 수 있나
 
+<p align="center">
+  <img src="./images/workcell_photo.jpg" alt="작업 공간 사진 — 레고 블록 지그로 고정한 수동 크랭크 그라인더와 분쇄 원두 병" width="420">
+</p>
+
 | 사용자가 하는 일 | 시스템이 하는 일 |
 |:---|:---|
 | 물리 버튼 DI13~16으로 원두 선택 | ① 원두 투입 실행 후 분쇄 굵기 선택 대기 |
@@ -102,7 +106,7 @@ TEST_READY ──(DI13~16)──► BEAN_SELECTED ─► bean_drop ─► [굵�
 | 오류 | 복구 절차 |
 |:---|:---|
 | `GripFailureError` (파지 판정 false) | 오류 화면 → **DI13** 관리자 호출 → 작업 환경 정리 후 **DI14** → 기본 TCP/Tool 원복 → 같은 단계를 처음부터 |
-| `GripperSignalLostError` (두절·세이프티 비트·표본 없음) | `move_stop` 응답 확인(실패하면 재요청) → 신호가 0.5 s 이상 정상 유지되는지 확인 → **DI13** 재시작 승인(대기 중 신호가 다시 나빠지면 처음으로) → 같은 단계를 처음부터 |
+| `GripperSignalLostError` (두절·세이프티 비트·표본 없음) | `move_stop` 응답 확인(실패하면 재요청) → 신호가 0.5 s 이상 정상 유지되는지 확인 → **DI13** 재시작 승인(대기 중 신호가 다시 나빠지면 처음으로) → 3 s 카운트다운(그사이 신호가 끊기면 취소) → 같은 단계를 처음부터 |
 | 그 밖의 예외 | 단계 복구 없이 `ERROR` 화면 → `TEST_READY` |
 
 <p align="center">
@@ -112,7 +116,7 @@ TEST_READY ──(DI13~16)──► BEAN_SELECTED ─► bean_drop ─► [굵�
 ### 나선 드립 궤적 — `stages/spiral_pour.py`, `geometry.py`
 Doosan 내장 `move_spiral()`에는 자세(A, B, C) 인자가 없습니다. 그래서 나선 이동과 주전자 기울임을 하나의 명령으로 표현할 수 없습니다. 대신 다음 순서로 경로를 직접 만듭니다.
 1. 위치는 삼각함수로, 자세는 회전행렬로 계산해 6D 경유점을 만듭니다.
-2. 4,000개 임시점을 누적 이동거리 기준 등간격 100개로 재표본화합니다.
+2. 임시점 8,000개(`max(4000, 경유점 수 × 80)`)를 누적 이동거리 기준 등간격 100개로 재표본화합니다.
 3. 기울기는 5차 smoothstep(`10u³−15u⁴+6u⁵`) 함수로 부드럽게 보간합니다.
 4. 실행 전에 경유점 사이 이동량이 15 mm / 5° 이내인지 검사합니다(`MOVESX_MAX_*`).
 
@@ -120,6 +124,10 @@ Doosan 내장 `move_spiral()`에는 자세(A, B, C) 인자가 없습니다. 그�
 
 <p align="center">
   <img src="./images/spiral_resampling.png" alt="등호길이 재표본화" width="760">
+</p>
+
+<p align="center">
+  <img src="./images/spiral_pour_run.jpg" alt="④ 나선 드립 실행 장면 — 위에서 본 주전자와 드리퍼" width="380">
 </p>
 
 ### 웹 UI와 모니터 — `web_ui` (`rokey/web/`, `rokey/monitor_pjt/`)
