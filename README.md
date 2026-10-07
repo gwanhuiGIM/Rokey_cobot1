@@ -2,7 +2,9 @@
 
 > 출처: 두산로보틱스 ROKEY 부트캠프(지능형 로보틱스 엔지니어 과정) 협동-1 프로젝트, 5인 팀 프로젝트의 제출 스냅샷입니다. 제출 코드는 그대로 두고 문서만 다시 정리했습니다.
 
-> ▶️ **[1분 시연 영상](https://youtu.be/17UW9-wpsBg)** · 📄 **[발표 자료(PDF)](https://github.com/gwanhuiGIM/Rokey_cobot1/releases/download/presentation/cobot1_presentation.pdf)** — 이 프로젝트를 가장 빨리 파악할 수 있는 자료입니다. 참고 문서는 [더 읽을 문서](#더-읽을-문서), 본인 담당은 [프로젝트 요약](#contribution)에 있습니다.
+> ▶️ **[1분 시연 영상](https://youtu.be/17UW9-wpsBg)** — 이 프로젝트를 가장 빨리 파악할 수 있는 자료입니다. 참고 문서는 [더 읽을 문서](#더-읽을-문서), 본인 담당은 [프로젝트 요약](#contribution)에 있습니다.
+>
+> 📄 [발표 자료(PDF, 46쪽)](https://github.com/gwanhuiGIM/Rokey_cobot1/releases/download/presentation/cobot1_presentation.pdf) — 세부 기술 발표 자료
 
 Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 과정(원두 투입 → 분쇄 → 필터 투입 → 나선 드립 → 서빙)을 자동으로 수행하는 ROS 2 시스템입니다.
 사람이 손으로 하면 매번 흔들리는 나선 푸어링을 같은 궤적으로 반복하는 것이 목표였습니다.
