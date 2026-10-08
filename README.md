@@ -2,7 +2,7 @@
 
 > 출처: 두산로보틱스 ROKEY 부트캠프(지능형 로보틱스 엔지니어 과정) 협동-1 프로젝트, 5인 팀 프로젝트의 제출 스냅샷입니다. 제출 코드는 그대로 두고 문서만 다시 정리했습니다.
 
-> ▶️ **[1분 시연 영상](https://youtu.be/17UW9-wpsBg)** — 이 프로젝트를 가장 빨리 파악할 수 있는 자료입니다. 참고 문서는 [더 읽을 문서](#더-읽을-문서), 본인 담당은 [프로젝트 요약](#contribution)에 있습니다.
+> ▶️ **[1분 시연 영상](https://youtu.be/17UW9-wpsBg)** — 이 프로젝트를 가장 빨리 파악할 수 있는 자료입니다. 참고 문서는 [더 읽을 문서](#더-읽을-문서)에 있습니다.
 >
 > 📄 [발표 자료(PDF, 46쪽)](https://github.com/gwanhuiGIM/Rokey_cobot1/releases/download/presentation/cobot1_presentation.pdf) — 세부 기술 발표 자료
 
@@ -25,36 +25,46 @@ Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 �
  그리퍼 개폐 명령은 컨트롤박스 DO 1·2 접점 조합으로 내립니다(Modbus는 상태 감시 + 관리자 수동 개폐).
 ```
 
-<a id="contribution"></a>
-## 프로젝트 요약 · 본인 담당 (김관희)
-
-> 포트폴리오용 프로젝트 요약입니다. 이 저장소의 코드는 팀 최종 제출본이고, 제 역할 범위는 **본인 담당** 행에 적었습니다. 접힌 '프로젝트 기술 전체'는 팀 전체 시스템 설명입니다. 다른 프로젝트: [github.com/gwanhuiGIM](https://github.com/gwanhuiGIM)
-
-**사용자가 버튼으로 주문하면 협동로봇이 커피를 내리는 핸드드립 자동화 공정을 구현하였습니다.**<br>
-이 과정에서 카메라 없이 그리퍼와 협동로봇의 힘·접점 신호만으로 "잡았는지 모르는" 순간을 따로 분리해 안전하게 멈췄습니다.
-
-Doosan M0609 + OnRobot RG2 · 5인 팀 · ROKEY 3차 (26.07.15~26.07.29)
-**본인 담당:** 그리퍼 예외 상황 처리 및 정상 공정 복귀 알고리즘(팀 README 역할표 기준)
-
-- **개요:** 비전 센서 없이 원두 계량부터 나선형 드립까지 5단계 공정을 로봇 제어만으로 자동화
-- **판정 불가 분리:** grip 비트가 안 떠도 관절 힘·위치에 접촉 흔적이 있으면 "판정 불가"로 분류 → 물체를 문 채 재파지하는 사고 방지
-- **watchdog:** 그리퍼 신호가 1초 넘게 끊기면 정지 요청, 실패 단계 재시도/정지는 작업자가 선택
-- **로거 버그:** 반복 파지 중 공정이 죽던 버그를 ROS2 내부 동작까지 추적해 해결
-- **회고:** 애매한 신호는 성공/실패로 뭉개지 말고 별도 상태로 다뤄야 안전하다
+## 환경 · 장비
 
 <details>
-<summary><b>프로젝트 기술 전체 · 코드 근거</b></summary>
+<summary>OS · 장비 설정 · 교시 좌표</summary>
 
-- **5단계 공정:** 원두 계량 → 그라인딩 → 드리퍼 투입 → 나선 드립 → 컵에 붓기, 공정 1단계 = 파일 1개로 분리하고 `RobotContext`로 모션 API·포즈·감시자 주입
-- **힘·순응 제어:** 순응 제어 상태에서 원호 모션으로 그라인딩(크랭크 회전 수 = 분쇄 굵기), 드리퍼 투입 단계는 기준 대비 4.0 N 이상 외력으로 병 두드림 감지
-- **나선 드립 궤적:** 위치는 삼각함수, 자세는 회전행렬로 6D 경유점 직접 생성 → 유량 편차를 줄이도록 호길이 기준 등간격 100개 경유점으로 재표본화, 5차 smoothstep으로 기울기 blend
-- **예외처리·UI:** 20Hz fail-closed watchdog의 `MoveStop` 요청, 단계 복구 FSM, 버튼(DI) 기반 원두·굵기 선택, FastAPI 기반 공정 진행·단계 테스트·관리자 웹 화면
-- **구현 위치:** watchdog·복구 FSM은 팀 제출본, 3값 파지 판정·로거 수정·pytest 7종은 병행 개발본(비공개)
-- **코드 근거:** [watchdog — `grip_monitor.py`](https://github.com/gwanhuiGIM/Rokey_cobot1/blob/main/src/rokey/rokey/coffee/grip_monitor.py#L253-L322) · [단계 복구 — `recovery.py`](https://github.com/gwanhuiGIM/Rokey_cobot1/blob/main/src/rokey/rokey/coffee/recovery.py#L346-L414)
+- Ubuntu 22.04, ROS 2 Humble, Python 3.10, GPU 불필요
+
+| 장비 | 설정 |
+|:---|:---|
+| Doosan M0609 | 컨트롤러 `192.168.1.100`, 네임스페이스 `dsr01`. 펜던트에 Tool `Tool Weight_gripper`, TCP `GripperDA_v1`·`pot`·`mug` 프리셋 등록 필요 |
+| OnRobot RG2 | 컴퓨트박스 `192.168.1.1:502`(Modbus TCP). 개폐는 컨트롤박스 DO 1·2 |
+| 물리 버튼 4개 | 컨트롤박스 DI 13~16 |
+| 제어 PC | 로봇·웹 서버를 한 PC에서 실행(`/test`·`/admin`이 localhost 전용이기 때문) |
+| 작업 도구 | 스푼, 수동 크랭크 그라인더, 분쇄 원두 병, 드리퍼, 주전자, 머그. 레고 블록 지그로 고정 |
+
+**교시 좌표가 곧 보정값입니다.** 그라인더·드리퍼·병·컵·스푼의 위치나 지그가 바뀌면 `coffee/config.py`의 좌표를 다시 교시해야 합니다. 그리퍼를 교체하거나 다시 캘리브레이션하면 `GRIP_EMPTY_CLOSED_POSITION_RAD`(빈손 닫힘 위치)를 다시 측정합니다.
 
 </details>
 
-개인 개발본: [Personal_cobot1_ws](https://github.com/gwanhuiGIM/Personal_cobot1_ws)
+## 저장소 구성
+
+<details>
+<summary>디렉터리 구성 · 저장소 미포함 항목</summary>
+
+```
+.
+├── README.md · requirements.txt
+├── docs/        # 시스템 구성도(.drawio), 통신 정의서(PDF)
+├── images/      # README 이미지
+└── src/
+    ├── rokey/           # 이 프로젝트 패키지 (ament_python) — coffee/ · web/ · monitor_pjt/
+    ├── doosan-robot2/   # Doosan ROS 2 드라이버 (upstream, BSD-3-Clause)
+    ├── onrobot-ros2/    # OnRobot RG 드라이버 (upstream, MIT)
+    └── rg2/             # m0609_rg2_bringup · m0609_rg2_moveit (package.xml상 Apache-2.0, 작성자 미기재)
+```
+저장소 미포함 항목:
+1. `src/rokey/resource/rokey` 마커 파일 — 아래 설치 1)에서 직접 만듭니다.
+2. 사용하지 않는 로봇 모델의 meshes/USD — `.gitignore`로 제외했습니다(m0609·m1013만 유지).
+
+</details>
 
 ## 무엇을 할 수 있나
 
@@ -264,47 +274,6 @@ FastAPI 앱(`web/app.py`)이 시작될 때(`lifespan`) `CoffeeWebBridge`와 `Sys
 | `docs/커피 시스템 통신 정의서.pdf` | 토픽·메시지 정의 (제출 당시 문서) |
 | `docs/coffee_system_architecture.drawio` | 시스템 구성도 원본 |
 | `images/flow_chart.png`, `images/flow_chart_detail.png` | 제출 당시 흐름도 |
-
-## 환경 · 장비
-
-<details>
-<summary>OS · 장비 설정 · 교시 좌표</summary>
-
-- Ubuntu 22.04, ROS 2 Humble, Python 3.10, GPU 불필요
-
-| 장비 | 설정 |
-|:---|:---|
-| Doosan M0609 | 컨트롤러 `192.168.1.100`, 네임스페이스 `dsr01`. 펜던트에 Tool `Tool Weight_gripper`, TCP `GripperDA_v1`·`pot`·`mug` 프리셋 등록 필요 |
-| OnRobot RG2 | 컴퓨트박스 `192.168.1.1:502`(Modbus TCP). 개폐는 컨트롤박스 DO 1·2 |
-| 물리 버튼 4개 | 컨트롤박스 DI 13~16 |
-| 제어 PC | 로봇·웹 서버를 한 PC에서 실행(`/test`·`/admin`이 localhost 전용이기 때문) |
-| 작업 도구 | 스푼, 수동 크랭크 그라인더, 분쇄 원두 병, 드리퍼, 주전자, 머그. 레고 블록 지그로 고정 |
-
-**교시 좌표가 곧 보정값입니다.** 그라인더·드리퍼·병·컵·스푼의 위치나 지그가 바뀌면 `coffee/config.py`의 좌표를 다시 교시해야 합니다. 그리퍼를 교체하거나 다시 캘리브레이션하면 `GRIP_EMPTY_CLOSED_POSITION_RAD`(빈손 닫힘 위치)를 다시 측정합니다.
-
-</details>
-
-## 저장소 구성
-
-<details>
-<summary>디렉터리 구성 · 저장소 미포함 항목</summary>
-
-```
-.
-├── README.md · requirements.txt
-├── docs/        # 시스템 구성도(.drawio), 통신 정의서(PDF)
-├── images/      # README 이미지
-└── src/
-    ├── rokey/           # 이 프로젝트 패키지 (ament_python) — coffee/ · web/ · monitor_pjt/
-    ├── doosan-robot2/   # Doosan ROS 2 드라이버 (upstream, BSD-3-Clause)
-    ├── onrobot-ros2/    # OnRobot RG 드라이버 (upstream, MIT)
-    └── rg2/             # m0609_rg2_bringup · m0609_rg2_moveit (package.xml상 Apache-2.0, 작성자 미기재)
-```
-저장소 미포함 항목:
-1. `src/rokey/resource/rokey` 마커 파일 — 아래 설치 1)에서 직접 만듭니다.
-2. 사용하지 않는 로봇 모델의 meshes/USD — `.gitignore`로 제외했습니다(m0609·m1013만 유지).
-
-</details>
 
 ## 설치
 
