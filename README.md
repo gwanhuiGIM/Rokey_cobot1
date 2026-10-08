@@ -251,6 +251,22 @@ FastAPI 앱(`web/app.py`)이 시작될 때(`lifespan`) `CoffeeWebBridge`와 `Sys
 | 관리 | `system/*`, `motion/jog`, `/onrobot/sendCommand` | `system_monitor.py` |
 </details>
 
+### 저장소 밖 확장 — 힘센서 접촉 감지 (`probe_grip_v2~v4`)
+이 저장소에는 없는 코드입니다. 개인 개발본 [`Personal_cobot1_ws` › `src/cup_detect`](https://github.com/gwanhuiGIM/Personal_cobot1_ws/tree/main/src/cup_detect)에 있는, 힘센서 접촉으로 물체 위치를 찾는 모듈입니다. 실기에서 접촉 감지와 정지 동작을 확인했고, 오차 같은 정량 기록은 남기지 않았습니다.
+
+1. 접근 전에 TCP 프리셋을 설정하고, v3·v4는 Tool 무게 프리셋도 함께 검증합니다. Tool 무게가 맞지 않으면 그리퍼 자중이 외력으로 읽혀 접촉을 잘못 감지하기 때문입니다.
+2. task compliance 제어를 켠 상태에서 비동기 직선 이동(`amovel`)으로 물체 쪽으로 다가가며 `get_tool_force(ref=DR_BASE)`로 접근 방향 힘을 주기적으로 읽습니다.
+3. 출발 직후 안정화 시간이 지난 뒤 접근 방향 반력이 임계값(파라미터 `contact_force_n*`)을 넘으면 quick stop(`DR_QSTOP`)으로 멈추고, 그 위치를 접촉점으로 씁니다. v3·v4는 접촉 뒤 +Z로 올라 물체를 피합니다.
+
+| 버전 | 접촉 | 결과 |
+|:---|:---|:---|
+| `probe_grip_v2` | +X 1회 | 접촉점에서 물체 반경만큼 더 들어간 X(물체 중심)로 +Y 쪽에서 진입해 측면 파지까지 수행 |
+| `probe_grip_v3` | +X·−X 양쪽 1회씩 | 두 접촉 X의 중앙을 중심 X로 반환(파지 없음) |
+| `probe_grip_v4` | +X 1회 + −Y 1회 | 접촉점과 가정 반경으로 중심 XY를 반환(반경 가정이 틀리면 그만큼 어긋남) |
+
+- 실행(개인 개발본 ws): `ros2 run cup_detect probe_grip_v3 --ros-args -p arm:=true`. `arm:=true` 없이는 모션을 내지 않고, `detect_enabled:=false`면 힘 판정 없이 고정 거리만 움직이는 드라이런입니다.
+- v4의 Y축 임계값·반력 부호 기본값은 코드 주석상 실측 전 값(`UNVERIFIED`)입니다.
+
 ## 한계 · 미완성
 
 - **위치는 전량 고정 교시 좌표**입니다. 도구 위치가 바뀌면 다시 교시해야 하고, 비전 보정은 없습니다.
