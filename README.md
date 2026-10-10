@@ -10,20 +10,24 @@ Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 �
 사람이 손으로 하면 매번 흔들리는 나선 푸어링을 같은 궤적으로 반복하는 것이 목표였습니다.
 **비전 센서는 쓰지 않습니다.** 위치는 모두 티치펜던트로 교시한 고정 좌표(`System.drvar` 원본, `coffee/config.py`)이고, 성공·실패 판정은 힘·그리퍼 신호·통신 상태로만 합니다.
 
+```mermaid
+flowchart LR
+    BTN["물리 버튼 DI13~16"] --> CS
+    BR["브라우저"] -->|"HTTP/WS"| WEB
+    subgraph WEB["web_ui (FastAPI :8000)"]
+        BRIDGE["CoffeeWebBridge"]
+        MON["SystemMonitor"]
+    end
+    BRIDGE -->|"/coffee_system/control"| CS["coffee_system (coffee/app.py)<br/>stages/ ①~⑤ · GripMonitor"]
+    CS -->|"/coffee_system/status"| MON
+    MON -->|"/system_monitor/*"| ADMIN["관리자 화면"]
+    MON -->|"상태 조회 · move_stop · jog 등"| DSR
+    CS -->|"motion/* force/* io/* tcp/* drl/*"| DSR["dsr_controller2<br/>(M0609, TCP/IP)"]
+    WEB -->|"관리자 수동 개폐"| ONR["OnRobotRGControllerServer<br/>(RG2 Modbus TCP)"]
+    ONR -->|"/OnRobotRGInput<br/>/onrobot/grip_detected<br/>/onrobot_joint_states"| CS
 ```
- 물리 버튼 DI13~16 ─┐                       ┌──────────── dsr_controller2 (M0609, TCP/IP)
-                    ▼                       │  motion/* force/* io/* tcp/* drl/*
- 브라우저 ─HTTP/WS─► web_ui (FastAPI :8000) │
-                    │  CoffeeWebBridge ─────┼─ /coffee_system/control ─► coffee_system
-                    │  SystemMonitor   ◄────┼─ /coffee_system/status  ◄─  (coffee/app.py)
-                    │      │                │                              │ stages/ ①~⑤
-                    │      └─ /system_monitor/* (관리자 화면)              │ GripMonitor
-                    │                                                      ▼
-                    └──────────────── OnRobotRGControllerServer ─ /OnRobotRGInput,
-                                       (RG2 Modbus TCP)             /onrobot/grip_detected,
-                                                                    /onrobot_joint_states
- 그리퍼 개폐 명령은 컨트롤박스 DO 1·2 접점 조합으로 내립니다(Modbus는 상태 감시 + 관리자 수동 개폐).
-```
+
+그리퍼 개폐 명령은 컨트롤박스 DO 1·2 접점 조합으로 내립니다(Modbus는 상태 감시 + 관리자 수동 개폐).
 
 ## 목차
 
@@ -130,13 +134,16 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
 4. `set_singularity_handling(DR_AVOID)`를 적용합니다.
 5. 이후 다음 루프를 반복합니다.
 
-```
-TEST_READY ──(DI13~16)──► BEAN_SELECTED ─► bean_drop ─► [굵기 선택] ─► grinder ─► dripper_in
-    ▲                                                                                │
-    │◄── DI13 ── WAIT_NEW_ORDER ◄── final_drip ◄── spiral_pour ◄─────────────────────┘
-    │
-    ├──(/test 명령)──► execute_test ─► 정상: TEST_DONE / 예외: TEST_ERROR ─► TEST_READY
-    └── 복구 불가 예외 ─► ERROR(screen 9) ─► TEST_READY
+```mermaid
+flowchart LR
+    TR([TEST_READY]) -->|"DI13~16"| BS([BEAN_SELECTED])
+    BS --> bean_drop --> SEL{"굵기 선택"} --> grinder --> dripper_in
+    dripper_in --> spiral_pour --> final_drip --> WNO([WAIT_NEW_ORDER])
+    WNO -->|"DI13"| TR
+    TR -->|"/test 명령"| execute_test
+    execute_test -->|"정상"| TD([TEST_DONE]) --> TR
+    execute_test -->|"예외"| TE([TEST_ERROR]) --> TR
+    ANY["본 공정 중 예외<br/>(BEAN_SELECTED ~ WAIT_NEW_ORDER)"] -.-> ERR(["ERROR (screen 9)"]) --> TR
 ```
 
 도식에는 함수 호출과 상태 발행이 섞여 있습니다. 대문자(`TEST_READY`·`BEAN_SELECTED`·`WAIT_NEW_ORDER`·`TEST_DONE`·`TEST_ERROR`·`ERROR`)는 `/coffee_system/status` JSON의 `phase` 값입니다. 소문자(`bean_drop`…`final_drip`, `execute_test`)는 호출하는 함수입니다. 각 단계 함수도 실행 중에 자기 `phase`를 따로 발행합니다.
