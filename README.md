@@ -8,7 +8,7 @@
 
 Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 과정(원두 투입 → 분쇄 → 필터 투입 → 나선 드립 → 서빙)을 자동으로 수행하는 ROS 2 시스템입니다.
 사람이 손으로 하면 매번 흔들리는 나선 푸어링을 같은 궤적으로 반복하는 것이 목표였습니다.
-**비전 센서는 쓰지 않습니다.** 위치는 모두 티치펜던트로 교시한 고정 좌표(`System.drvar` 원본, `coffee/config.py`)이고, 성공·실패 판정은 힘·그리퍼 신호·통신 상태로만 합니다.
+**비전 센서는 쓰지 않습니다.** 위치는 모두 티치펜던트로 교시한 고정 좌표(`System.drvar` 원본, [`coffee/config.py`](src/rokey/rokey/coffee/config.py))이고, 성공·실패 판정은 힘·그리퍼 신호·통신 상태로만 합니다.
 
 ```mermaid
 flowchart LR
@@ -58,6 +58,16 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
 
 ## 저장소 구성
 
+**핵심 코드 바로가기**
+
+| 파일 | 하는 일 | 설명 위치 |
+|:---|:---|:---|
+| ⭐ **[`coffee/app.py`](src/rokey/rokey/coffee/app.py)** | 공정 노드 `main()` — 5단계를 차례로 실행하는 디스패처 | [공정 노드](#공정-노드--coffee_system-rokeycoffee) |
+| **[`coffee/grip_monitor.py`](src/rokey/rokey/coffee/grip_monitor.py)** | RG2 신호로 파지 판정 + 통신·세이프티 워치독 | [그리퍼 감시와 단계 복구](#그리퍼-감시와-단계-복구--grip_monitorpy-recoverypy) |
+| **[`coffee/recovery.py`](src/rokey/rokey/coffee/recovery.py)** | `run_protected_stage()` — 실패한 단계만 다시 실행 | [그리퍼 감시와 단계 복구](#그리퍼-감시와-단계-복구--grip_monitorpy-recoverypy) |
+| **[`stages/spiral_pour.py`](src/rokey/rokey/coffee/stages/spiral_pour.py)** | 6D 경유점 나선을 `movesx` 한 번으로 실행 | [나선 드립 궤적](#나선-드립-궤적--stagesspiral_pourpy-geometrypy) |
+| **[`web/app.py`](src/rokey/rokey/web/app.py)** | FastAPI 웹 UI·관리자 화면, `CoffeeWebBridge`·`SystemMonitor` 구동 | [웹 UI와 모니터](#웹-ui와-모니터--web_ui-rokeyweb-rokeymonitor_pjt) |
+
 <details>
 <summary>디렉터리 구성 · 저장소 미포함 항목</summary>
 
@@ -67,10 +77,11 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
 ├── docs/        # 시스템 구성도(.drawio), 통신 정의서(PDF)
 ├── images/      # README 이미지
 └── src/
-    ├── rokey/           # 이 프로젝트 패키지 (ament_python) — coffee/ · web/ · monitor_pjt/
+    ├── rokey/           # ★ 이 프로젝트 패키지 (ament_python) — coffee/ · web/ · monitor_pjt/
     ├── doosan-robot2/   # Doosan ROS 2 드라이버 (upstream, BSD-3-Clause)
     ├── onrobot-ros2/    # OnRobot RG 드라이버 (upstream, MIT)
     └── rg2/             # m0609_rg2_bringup · m0609_rg2_moveit (package.xml상 Apache-2.0, 작성자 미기재)
+# ★ = 위 "핵심 코드 바로가기" 파일이 있는 곳
 ```
 저장소 미포함 항목:
 1. `src/rokey/resource/rokey` 마커 파일 — 아래 설치 1)에서 직접 만듭니다.
@@ -81,11 +92,11 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
 ## 무엇을 할 수 있나
 
 **핵심 기능**
-- **5단계 자동 공정** — `coffee_system` 노드(`coffee/app.py`)가 `stages/*.py` 다섯 단계를 차례로 실행합니다. 각 단계는 `RobotContext` 하나만 인자로 받고 `DSR_ROBOT2`를 직접 import하지 않습니다.
-- **파지 판정과 통신 워치독** — `grip_monitor.py`가 RG2 신호로 파지 성공을 판정하고, 신호가 끊기면 로봇 정지를 요청합니다.
-- **단계 단위 복구** — 모든 단계는 `recovery.py`의 `run_protected_stage()`로 감싸여 있습니다. 파지 실패나 통신 두절이 나면 사이클 전체가 아니라 **실패한 단계만** 처음부터 다시 실행하고, 재시작 전에는 작업자가 물리 버튼으로 승인합니다.
-- **나선 드립 궤적** — `spiral_pour.py`·`geometry.py`가 위치와 주전자 기울기를 함께 담은 6D 경유점을 만들어 `movesx` 한 번으로 실행합니다.
-- **웹 UI · 관리자 화면** — `web_ui` 노드(`web/app.py`)가 공정 상태 표시, 단계별 테스트, 소프트 E-Stop·Jog를 브라우저로 제공합니다.
+- **5단계 자동 공정** — `coffee_system` 노드([`coffee/app.py`](src/rokey/rokey/coffee/app.py))가 `stages/*.py` 다섯 단계를 차례로 실행합니다. 각 단계는 `RobotContext` 하나만 인자로 받고 `DSR_ROBOT2`를 직접 import하지 않습니다.
+- **파지 판정과 통신 워치독** — [`grip_monitor.py`](src/rokey/rokey/coffee/grip_monitor.py)가 RG2 신호로 파지 성공을 판정하고, 신호가 끊기면 로봇 정지를 요청합니다.
+- **단계 단위 복구** — 모든 단계는 [`recovery.py`](src/rokey/rokey/coffee/recovery.py)의 `run_protected_stage()`로 감싸여 있습니다. 파지 실패나 통신 두절이 나면 사이클 전체가 아니라 **실패한 단계만** 처음부터 다시 실행하고, 재시작 전에는 작업자가 물리 버튼으로 승인합니다.
+- **나선 드립 궤적** — [`spiral_pour.py`](src/rokey/rokey/coffee/stages/spiral_pour.py)·[`geometry.py`](src/rokey/rokey/coffee/geometry.py)가 위치와 주전자 기울기를 함께 담은 6D 경유점을 만들어 `movesx` 한 번으로 실행합니다.
+- **웹 UI · 관리자 화면** — `web_ui` 노드([`web/app.py`](src/rokey/rokey/web/app.py))가 공정 상태 표시, 단계별 테스트, 소프트 E-Stop·Jog를 브라우저로 제공합니다.
 
 <p align="center">
   <img src="./images/workcell_photo.jpg" alt="작업 공간 사진 — 레고 블록 지그로 고정한 수동 크랭크 그라인더와 분쇄 원두 병" width="420">
@@ -108,11 +119,11 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
 
 | 단계 | 파일 | 동작 |
 |:---:|:---|:---|
-| ① | `stages/bean_drop.py` | 스푼 파지 → 계량 → 이동과 관절 회전을 함께 실행해 그라인더 호퍼에 투입 |
-| ② | `stages/grinder.py` | 손잡이 파지 → `task_compliance_ctrl` + `set_stiffnessx` 순응 제어 → `movec`/`amovec` 원호로 크랭크 회전. `check_motion` 폴링으로 회전 진행률 표시 |
-| ③ | `stages/dripper_in.py` | 분쇄 원두 병을 드리퍼 위로 → `move_periodic` 진동 → 외력(4 N) 대기 → 병 복귀 |
+| ① | [`stages/bean_drop.py`](src/rokey/rokey/coffee/stages/bean_drop.py) | 스푼 파지 → 계량 → 이동과 관절 회전을 함께 실행해 그라인더 호퍼에 투입 |
+| ② | [`stages/grinder.py`](src/rokey/rokey/coffee/stages/grinder.py) | 손잡이 파지 → `task_compliance_ctrl` + `set_stiffnessx` 순응 제어 → `movec`/`amovec` 원호로 크랭크 회전. `check_motion` 폴링으로 회전 진행률 표시 |
+| ③ | [`stages/dripper_in.py`](src/rokey/rokey/coffee/stages/dripper_in.py) | 분쇄 원두 병을 드리퍼 위로 → `move_periodic` 진동 → 외력(4 N) 대기 → 병 복귀 |
 | ④ | `stages/spiral_pour.py` | 주전자 파지 → `pot` TCP → 6D 경유점 100개를 `movesx` 한 번으로 실행하는 내향 나선(r = 44 mm, 5회전, 15 s) |
-| ⑤ | `stages/final_drip.py` | `mug` TCP를 컵 입구로 두고 J6을 55° 기울여 붓기 → 저장한 시작 자세로 복귀 |
+| ⑤ | [`stages/final_drip.py`](src/rokey/rokey/coffee/stages/final_drip.py) | `mug` TCP를 컵 입구로 두고 J6을 55° 기울여 붓기 → 저장한 시작 자세로 복귀 |
 
 <p align="center">
   <img src="./images/s01_bean_select.png" alt="원두 선택 화면" width="300" height="320">
@@ -226,19 +237,19 @@ FastAPI 앱(`web/app.py`)이 시작될 때(`lifespan`) `CoffeeWebBridge`와 `Sys
 |:---:|:---|:---|---:|
 | L0 | `config.py` | 교시 좌표·속도·임계값·토픽명 | 250 |
 | | `geometry.py` | ZYZ↔회전행렬, 회전벡터, smoothstep (ROS 의존 없음) | 257 |
-| | `errors.py` | 단계 재시작 예외 | 40 |
-| L1 | `speed.py` | 속도 비율 → 표시값 환산 | 54 |
-| | `status.py` | `/coffee_system/status` JSON 발행 (`StatusReporter`) | 294 |
-| | `buttons.py` | DI13~16 입력 (`RobotState` 구독, 3 s 미수신 시 서비스 폴링으로 전환) | 332 |
+| | [`errors.py`](src/rokey/rokey/coffee/errors.py) | 단계 재시작 예외 | 40 |
+| L1 | [`speed.py`](src/rokey/rokey/coffee/speed.py) | 속도 비율 → 표시값 환산 | 54 |
+| | [`status.py`](src/rokey/rokey/coffee/status.py) | `/coffee_system/status` JSON 발행 (`StatusReporter`) | 294 |
+| | [`buttons.py`](src/rokey/rokey/coffee/buttons.py) | DI13~16 입력 (`RobotState` 구독, 3 s 미수신 시 서비스 폴링으로 전환) | 332 |
 | | `grip_monitor.py` | 파지 판정 + 통신/세이프티 워치독 | 457 |
-| | `control_bridge.py` | 웹 테스트·속도 명령 수신 노드 | 264 |
-| L2 | `robot.py` | `RobotApi`/`TeachPoses`/`RobotContext`, 그리퍼 DO·TCP·외력 헬퍼 | 495 |
+| | [`control_bridge.py`](src/rokey/rokey/coffee/control_bridge.py) | 웹 테스트·속도 명령 수신 노드 | 264 |
+| L2 | [`robot.py`](src/rokey/rokey/coffee/robot.py) | `RobotApi`/`TeachPoses`/`RobotContext`, 그리퍼 DO·TCP·외력 헬퍼 | 495 |
 | L3 | `stages/*.py` | 공정 5단계 (파일 1개 = 단계 1개) | 82~734 |
 | L4 | `recovery.py` | 복구 흐름, `run_protected_stage()` | 414 |
 | | `app.py` | 디스패처, `main()` | 454 |
 
-`web/`: `constants.py`(토픽·허용값) · `bridge.py`(`CoffeeWebBridge`) · `pages.py`(템플릿 로더) · `app.py`(FastAPI) · `templates/{index,test,admin}.html`
-`monitor_pjt/`: `system_monitor.py`(10 Hz 스냅샷 + 관리자 명령 중계) · `snapshot.py`(상태 JSON 스키마 dataclass) · `process_state.py`(공정 상태 보고 규약 — 아래 한계 참고)
+`web/`: [`constants.py`](src/rokey/rokey/web/constants.py)(토픽·허용값) · [`bridge.py`](src/rokey/rokey/web/bridge.py)(`CoffeeWebBridge`) · [`pages.py`](src/rokey/rokey/web/pages.py)(템플릿 로더) · `app.py`(FastAPI) · `templates/{index,test,admin}.html`
+`monitor_pjt/`: [`system_monitor.py`](src/rokey/rokey/monitor_pjt/system_monitor.py)(10 Hz 스냅샷 + 관리자 명령 중계) · [`snapshot.py`](src/rokey/rokey/monitor_pjt/snapshot.py)(상태 JSON 스키마 dataclass) · [`process_state.py`](src/rokey/rokey/monitor_pjt/process_state.py)(공정 상태 보고 규약 — 아래 한계 참고)
 </details>
 
 <details>
@@ -324,7 +335,7 @@ pip3 install -r requirements.txt
 colcon build --symlink-install
 source install/setup.bash
 ```
-- 웹 템플릿은 `setup.py`의 `package_data`로 설치됩니다. 이 항목이 빠지면 빌드는 되지만 `/test`·`/admin`에서 `FileNotFoundError`가 납니다.
+- 웹 템플릿은 [`setup.py`](src/rokey/setup.py)의 `package_data`로 설치됩니다. 이 항목이 빠지면 빌드는 되지만 `/test`·`/admin`에서 `FileNotFoundError`가 납니다.
 - Real 모드 전에 `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0`을 적용합니다(UDP 특권 포트 해제).
 
 의존성 버전은 제출 당시 실행 PC 기준이며, 문서 정리 후 재설치·재빌드하지 않았습니다.
