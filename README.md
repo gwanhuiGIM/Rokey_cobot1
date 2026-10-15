@@ -56,19 +56,6 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
 
 ## 저장소 구성
 
-**핵심 코드 바로가기**
-
-| 파일 | 하는 일 | 설명 위치 |
-|:---|:---|:---|
-| ⭐ **[`coffee/app.py`](src/rokey/rokey/coffee/app.py)** | 공정 노드 `main()` — 5단계를 차례로 실행하는 디스패처 | [공정 노드](#공정-노드--coffee_system-rokeycoffee) |
-| **[`coffee/grip_monitor.py`](src/rokey/rokey/coffee/grip_monitor.py)** | RG2 신호로 파지 판정 + 통신·세이프티 워치독 | [그리퍼 감시와 단계 복구](#그리퍼-감시와-단계-복구--grip_monitorpy-recoverypy) |
-| **[`coffee/recovery.py`](src/rokey/rokey/coffee/recovery.py)** | `run_protected_stage()` — 실패한 단계만 다시 실행 | [그리퍼 감시와 단계 복구](#그리퍼-감시와-단계-복구--grip_monitorpy-recoverypy) |
-| **[`stages/spiral_pour.py`](src/rokey/rokey/coffee/stages/spiral_pour.py)** | 6D 경유점 나선을 `movesx` 한 번으로 실행 | [나선 드립 궤적](#나선-드립-궤적--stagesspiral_pourpy-geometrypy) |
-| **[`web/app.py`](src/rokey/rokey/web/app.py)** | FastAPI 웹 UI·관리자 화면, `CoffeeWebBridge`·`SystemMonitor` 구동 | [웹 UI와 모니터](#웹-ui와-모니터--web_ui-rokeyweb-rokeymonitor_pjt) |
-
-<details>
-<summary>디렉터리 구성 · 저장소 미포함 항목</summary>
-
 ```
 .
 ├── README.md · requirements.txt
@@ -79,8 +66,25 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
     ├── doosan-robot2/   # Doosan ROS 2 드라이버 (upstream, BSD-3-Clause)
     ├── onrobot-ros2/    # OnRobot RG 드라이버 (upstream, MIT)
     └── rg2/             # m0609_rg2_bringup · m0609_rg2_moveit (package.xml상 Apache-2.0, 작성자 미기재)
-# ★ = 위 "핵심 코드 바로가기" 파일이 있는 곳
+# ★ = 아래 "핵심 코드 바로가기" 파일이 있는 곳
 ```
+
+<details>
+<summary>핵심 코드 바로가기</summary>
+
+| 파일 | 하는 일 | 설명 위치 |
+|:---|:---|:---|
+| ⭐ **[`coffee/app.py`](src/rokey/rokey/coffee/app.py)** | 공정 노드 `main()` — 5단계를 차례로 실행하는 디스패처 | [공정 노드](#공정-노드--coffee_system-rokeycoffee) |
+| **[`coffee/grip_monitor.py`](src/rokey/rokey/coffee/grip_monitor.py)** | RG2 신호로 파지 판정 + 통신·세이프티 워치독 | [그리퍼 감시와 단계 복구](#그리퍼-감시와-단계-복구--grip_monitorpy-recoverypy) |
+| **[`coffee/recovery.py`](src/rokey/rokey/coffee/recovery.py)** | `run_protected_stage()` — 실패한 단계만 다시 실행 | [그리퍼 감시와 단계 복구](#그리퍼-감시와-단계-복구--grip_monitorpy-recoverypy) |
+| **[`stages/spiral_pour.py`](src/rokey/rokey/coffee/stages/spiral_pour.py)** | 6D 경유점 나선을 `movesx` 한 번으로 실행 | [나선 드립 궤적](#나선-드립-궤적--stagesspiral_pourpy-geometrypy) |
+| **[`web/app.py`](src/rokey/rokey/web/app.py)** | FastAPI 웹 UI·관리자 화면, `CoffeeWebBridge`·`SystemMonitor` 구동 | [웹 UI와 모니터](#웹-ui와-모니터--web_ui-rokeyweb-rokeymonitor_pjt) |
+
+</details>
+
+<details>
+<summary>저장소 미포함 항목</summary>
+
 저장소 미포함 항목:
 1. `src/rokey/resource/rokey` 마커 파일 — 아래 설치 1)에서 직접 만듭니다.
 2. 사용하지 않는 로봇 모델의 meshes/USD — `.gitignore`로 제외했습니다(m0609·m1013만 유지).
