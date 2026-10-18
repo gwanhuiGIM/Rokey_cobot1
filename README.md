@@ -8,8 +8,11 @@ Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 �
 사람이 손으로 하면 매번 흔들리는 나선 푸어링을 같은 궤적으로 반복하는 것이 목표였습니다.
 **비전 센서는 쓰지 않습니다.** 위치는 모두 티치펜던트로 교시한 고정 좌표(`System.drvar` 원본, [`coffee/config.py`](src/rokey/rokey/coffee/config.py))이고, 성공·실패 판정은 힘·그리퍼 신호·통신 상태로만 합니다.
 
+<details>
+<summary>시스템 구성도</summary>
+
 ```mermaid
-flowchart LR
+flowchart TB
     BTN["물리 버튼 DI13~16"] --> CS
     BR["브라우저"] -->|"HTTP/WS"| WEB
     subgraph WEB["web_ui (FastAPI :8000)"]
@@ -24,6 +27,8 @@ flowchart LR
     WEB -->|"관리자 수동 개폐"| ONR["OnRobotRGControllerServer<br/>(RG2 Modbus TCP)"]
     ONR -->|"/OnRobotRGInput<br/>/onrobot/grip_detected<br/>/onrobot_joint_states"| CS
 ```
+
+</details>
 
 그리퍼 개폐 명령은 컨트롤박스 DO 1·2 접점 조합으로 내립니다(Modbus는 상태 감시 + 관리자 수동 개폐).
 
@@ -148,15 +153,30 @@ _주제별 바로가기입니다. 본문 배치 순서와 다를 수 있습니�
 5. 이후 다음 루프를 반복합니다.
 
 ```mermaid
-flowchart LR
-    TR([TEST_READY]) -->|"DI13~16"| BS([BEAN_SELECTED])
-    BS --> bean_drop --> SEL{"굵기 선택"} --> grinder --> dripper_in
-    dripper_in --> spiral_pour --> final_drip --> WNO([WAIT_NEW_ORDER])
-    WNO -->|"DI13"| TR
-    TR -->|"/test 명령"| execute_test
-    execute_test -->|"정상"| TD([TEST_DONE]) --> TR
-    execute_test -->|"예외"| TE([TEST_ERROR]) --> TR
-    ANY["본 공정 중 예외<br/>(BEAN_SELECTED ~ WAIT_NEW_ORDER)"] -.-> ERR(["ERROR (screen 9)"]) --> TR
+flowchart TB
+    TR([TEST_READY])
+    subgraph MAIN["본 공정 (BEAN_SELECTED ~ WAIT_NEW_ORDER)"]
+        direction TB
+        subgraph PREP["원두 · 분쇄"]
+            direction LR
+            BS([BEAN_SELECTED]) --> bean_drop --> SEL{"굵기 선택"} --> grinder
+        end
+        subgraph BREW["추출"]
+            direction LR
+            dripper_in --> spiral_pour --> final_drip --> WNO([WAIT_NEW_ORDER])
+        end
+        PREP --> BREW
+    end
+    subgraph TEST["테스트"]
+        direction LR
+        execute_test -->|"정상"| TD([TEST_DONE])
+        execute_test -->|"예외"| TE([TEST_ERROR])
+    end
+    TR -->|"DI13~16"| MAIN
+    MAIN -->|"WAIT_NEW_ORDER에서 DI13"| TR
+    TR -->|"/test 명령"| TEST
+    TEST -->|"TEST_DONE · TEST_ERROR 후"| TR
+    MAIN -.->|"본 공정 중 예외"| ERR(["ERROR (screen 9)"]) --> TR
 ```
 
 도식에는 함수 호출과 상태 발행이 섞여 있습니다. 대문자(`TEST_READY`·`BEAN_SELECTED`·`WAIT_NEW_ORDER`·`TEST_DONE`·`TEST_ERROR`·`ERROR`)는 `/coffee_system/status` JSON의 `phase` 값입니다. 소문자(`bean_drop`…`final_drip`, `execute_test`)는 호출하는 함수입니다. 각 단계 함수도 실행 중에 자기 `phase`를 따로 발행합니다.
