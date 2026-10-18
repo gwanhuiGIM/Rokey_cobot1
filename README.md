@@ -165,16 +165,16 @@ flowchart TB
             direction LR
             dripper_in --> spiral_pour --> final_drip --> WNO([WAIT_NEW_ORDER])
         end
-        PREP --> BREW
+        PREP -->|"grinder → dripper_in"| BREW
     end
     subgraph TEST["테스트"]
         direction LR
         execute_test -->|"정상"| TD([TEST_DONE])
         execute_test -->|"예외"| TE([TEST_ERROR])
     end
-    TR -->|"DI13~16"| MAIN
+    TR -->|"DI13~16<br/>TEST_READY → BEAN_SELECTED"| MAIN
     MAIN -->|"WAIT_NEW_ORDER에서 DI13"| TR
-    TR -->|"/test 명령"| TEST
+    TR -->|"/test 명령<br/>TEST_READY → execute_test"| TEST
     TEST -->|"TEST_DONE · TEST_ERROR 후"| TR
     MAIN -.->|"본 공정 중 예외"| ERR(["ERROR (screen 9)"]) --> TR
 ```
