@@ -16,17 +16,19 @@ Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 �
 ```mermaid
 flowchart TB
     BTN["주문 버튼 DI13~16<br/>(로봇 컨트롤러 입력)"] -->|"버튼 신호"| DSR
-    BR["브라우저"] -->|"주문 · 공정 속도 · 테스트 요청"| WEB
-    subgraph WEB["웹 서버"]
-        BRIDGE["명령 전달"]
-        MON["상태 감시 · 관리자 조작"]
+    BR["브라우저<br/>(일반 · 테스트 · 관리자 화면)"] <-->|"조작 요청 / 화면 갱신"| BRIDGE
+    subgraph WEB["웹 서버 (한 프로세스)"]
+        BRIDGE["웹 ↔ ROS 중계"]
+        MON["로봇 감시 · 관리자 조작"]
+        BRIDGE -->|"관리자 명령<br/>(정지 · 정지 해제 · 그리퍼 등)"| MON
+        MON -->|"로봇 상태 · 로그"| BRIDGE
     end
-    BRIDGE -->|"시작 · 정지 등 제어 명령"| CS["커피 공정 진행<br/>원두 → 분쇄 → 추출 5단계<br/>그립 감시 · 단계 복구"]
-    CS -->|"공정 단계 · 오류"| MON
-    MON -->|"화면 갱신"| ADMIN["관리자 화면"]
-    MON -->|"상태 조회 · 정지 · 조그"| DSR
+    BRIDGE -->|"공정 속도 · 테스트 실행"| CS["커피 공정 진행<br/>원두 → 분쇄 → 추출 5단계<br/>그립 감시 · 단계 복구"]
+    CS -->|"공정 단계 · 오류"| BRIDGE
     CS -->|"모션 · 힘 제어 · IO 명령"| DSR["로봇 팔 드라이버<br/>(M0609)"]
     DSR -->|"로봇 상태 (버튼 입력 포함)"| CS
+    DSR -->|"관절 상태 · 오류 · IO"| MON
+    MON -->|"정지 · 정지 해제 · 조그"| DSR
     MON -->|"관리자 수동 개폐"| ONR["그리퍼 드라이버<br/>(RG2)"]
     ONR -->|"그립 폭 · 물체 감지"| CS
 ```
@@ -34,9 +36,9 @@ flowchart TB
 | 칸 | 코드 | 주고받는 토픽·서비스 |
 |---|---|---|
 | 주문 버튼 | 감지 코드 [`coffee/buttons.py`](src/rokey/rokey/coffee/buttons.py) | 로봇 상태 토픽의 DI 비트를 읽고, 상태가 안 들어오면 서비스로 직접 조회 |
-| 명령 전달 | [`web/bridge.py`](src/rokey/rokey/web/bridge.py) (`CoffeeWebBridge`), 앱 진입점 [`web/app.py`](src/rokey/rokey/web/app.py) | 발행 `/coffee_system/control` |
-| 상태 감시 · 관리자 조작 | [`monitor_pjt/system_monitor.py`](src/rokey/rokey/monitor_pjt/system_monitor.py) (`SystemMonitor`) | 구독 `/system_monitor/cmd`(관리자 화면 명령) `/coffee_system/status` `OnRobotRGInput` · 발행 `/system_monitor/*` · dsr 서비스(상태 조회, `move_stop`, jog) · 그리퍼 `/onrobot/sendCommand` |
-| 커피 공정 진행 | [`coffee/app.py`](src/rokey/rokey/coffee/app.py), 단계별 동작 [`coffee/stages/`](src/rokey/rokey/coffee/stages), 그립 감시 [`coffee/grip_monitor.py`](src/rokey/rokey/coffee/grip_monitor.py) | 구독 `/coffee_system/control` · 발행 `/coffee_system/status` · dsr `motion/*` `force/*` `io/*` `tcp/*` `drl/*` |
+| 웹 ↔ ROS 중계 | [`web/bridge.py`](src/rokey/rokey/web/bridge.py) (`CoffeeWebBridge`), 앱 진입점 [`web/app.py`](src/rokey/rokey/web/app.py) | 구독 `/coffee_system/status` `/system_monitor/status` `/system_monitor/log` · 발행 `/coffee_system/control`(속도 변경 · 테스트) `/system_monitor/cmd`(관리자 명령) |
+| 로봇 감시 · 관리자 조작 | [`monitor_pjt/system_monitor.py`](src/rokey/rokey/monitor_pjt/system_monitor.py) (`SystemMonitor`) | 구독 `/system_monitor/cmd` · dsr `joint_states` `error` `io/ctrl_box_digital_input_state` · `OnRobotRGInput` · 발행 `/system_monitor/status` `/system_monitor/log` · dsr 서비스(`move_stop` 등) · 그리퍼 `/onrobot/sendCommand`. `/coffee_process/state`도 구독하지만 발행하는 노드가 없음([한계](#한계--미완성)) |
+| 커피 공정 진행 | [`coffee/app.py`](src/rokey/rokey/coffee/app.py), 웹 명령 처리 [`coffee/control_bridge.py`](src/rokey/rokey/coffee/control_bridge.py), 단계별 동작 [`coffee/stages/`](src/rokey/rokey/coffee/stages), 그립 감시 [`coffee/grip_monitor.py`](src/rokey/rokey/coffee/grip_monitor.py) | 구독 `/coffee_system/control` · 발행 `/coffee_system/status` · dsr `motion/*` `force/*` `io/*` `tcp/*` `drl/*` |
 | 로봇 팔 드라이버 | `src/doosan-robot2/` (`dsr_controller2`, 제조사 패키지) | 컨트롤러와 TCP/IP |
 | 그리퍼 드라이버 | [`OnRobotRGControllerServer.py`](src/onrobot-ros2/onrobot_rg_control/onrobot_rg_control/OnRobotRGControllerServer.py) | RG2와 Modbus TCP · 발행 `/OnRobotRGInput` `/onrobot/grip_detected` `/onrobot_joint_states` |
 
