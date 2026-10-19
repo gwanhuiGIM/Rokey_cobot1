@@ -11,22 +11,34 @@ Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 �
 <details>
 <summary>시스템 구성도</summary>
 
+칸은 하는 일, 화살표는 주고받는 내용입니다. 노드·토픽 이름과 코드 위치는 그림 아래 표에 있습니다.
+
 ```mermaid
 flowchart TB
-    BTN["물리 버튼 DI13~16"] --> CS
-    BR["브라우저"] -->|"HTTP/WS"| WEB
-    subgraph WEB["web_ui (FastAPI :8000)"]
-        BRIDGE["CoffeeWebBridge"]
-        MON["SystemMonitor"]
+    BTN["주문 버튼 DI13~16<br/>(로봇 컨트롤러 입력)"] -->|"버튼 신호"| DSR
+    BR["브라우저"] -->|"주문 · 공정 속도 · 테스트 요청"| WEB
+    subgraph WEB["웹 서버"]
+        BRIDGE["명령 전달"]
+        MON["상태 감시 · 관리자 조작"]
     end
-    BRIDGE -->|"/coffee_system/control"| CS["coffee_system (coffee/app.py)<br/>stages/ ①~⑤ · GripMonitor"]
-    CS -->|"/coffee_system/status"| MON
-    MON -->|"/system_monitor/*"| ADMIN["관리자 화면"]
-    MON -->|"상태 조회 · move_stop · jog 등"| DSR
-    CS -->|"motion/* force/* io/* tcp/* drl/*"| DSR["dsr_controller2<br/>(M0609, TCP/IP)"]
-    WEB -->|"관리자 수동 개폐"| ONR["OnRobotRGControllerServer<br/>(RG2 Modbus TCP)"]
-    ONR -->|"/OnRobotRGInput<br/>/onrobot/grip_detected<br/>/onrobot_joint_states"| CS
+    BRIDGE -->|"시작 · 정지 등 제어 명령"| CS["커피 공정 진행<br/>원두 → 분쇄 → 추출 5단계<br/>그립 감시 · 단계 복구"]
+    CS -->|"공정 단계 · 오류"| MON
+    MON -->|"화면 갱신"| ADMIN["관리자 화면"]
+    MON -->|"상태 조회 · 정지 · 조그"| DSR
+    CS -->|"모션 · 힘 제어 · IO 명령"| DSR["로봇 팔 드라이버<br/>(M0609)"]
+    DSR -->|"로봇 상태 (버튼 입력 포함)"| CS
+    MON -->|"관리자 수동 개폐"| ONR["그리퍼 드라이버<br/>(RG2)"]
+    ONR -->|"그립 폭 · 물체 감지"| CS
 ```
+
+| 칸 | 코드 | 주고받는 토픽·서비스 |
+|---|---|---|
+| 주문 버튼 | 감지 코드 [`coffee/buttons.py`](src/rokey/rokey/coffee/buttons.py) | 로봇 상태 토픽의 DI 비트를 읽고, 상태가 안 들어오면 서비스로 직접 조회 |
+| 명령 전달 | [`web/bridge.py`](src/rokey/rokey/web/bridge.py) (`CoffeeWebBridge`), 앱 진입점 [`web/app.py`](src/rokey/rokey/web/app.py) | 발행 `/coffee_system/control` |
+| 상태 감시 · 관리자 조작 | [`monitor_pjt/system_monitor.py`](src/rokey/rokey/monitor_pjt/system_monitor.py) (`SystemMonitor`) | 구독 `/system_monitor/cmd`(관리자 화면 명령) `/coffee_system/status` `OnRobotRGInput` · 발행 `/system_monitor/*` · dsr 서비스(상태 조회, `move_stop`, jog) · 그리퍼 `/onrobot/sendCommand` |
+| 커피 공정 진행 | [`coffee/app.py`](src/rokey/rokey/coffee/app.py), 단계별 동작 [`coffee/stages/`](src/rokey/rokey/coffee/stages), 그립 감시 [`coffee/grip_monitor.py`](src/rokey/rokey/coffee/grip_monitor.py) | 구독 `/coffee_system/control` · 발행 `/coffee_system/status` · dsr `motion/*` `force/*` `io/*` `tcp/*` `drl/*` |
+| 로봇 팔 드라이버 | `src/doosan-robot2/` (`dsr_controller2`, 제조사 패키지) | 컨트롤러와 TCP/IP |
+| 그리퍼 드라이버 | [`OnRobotRGControllerServer.py`](src/onrobot-ros2/onrobot_rg_control/onrobot_rg_control/OnRobotRGControllerServer.py) | RG2와 Modbus TCP · 발행 `/OnRobotRGInput` `/onrobot/grip_detected` `/onrobot_joint_states` |
 
 </details>
 
@@ -163,20 +175,18 @@ flowchart TB
         end
         subgraph BREW["추출"]
             direction LR
-            dripper_in --> spiral_pour --> final_drip --> WNO([WAIT_NEW_ORDER])
+            dripper_in --> spiral_pour --> final_drip --> WNO(["WAIT_NEW_ORDER<br/>DI13 → TEST_READY"])
         end
         PREP -->|"grinder → dripper_in"| BREW
     end
     subgraph TEST["테스트"]
         direction LR
-        execute_test -->|"정상"| TD([TEST_DONE])
-        execute_test -->|"예외"| TE([TEST_ERROR])
+        execute_test -->|"정상"| TD(["TEST_DONE<br/>→ TEST_READY"])
+        execute_test -->|"예외"| TE(["TEST_ERROR<br/>→ TEST_READY"])
     end
     TR -->|"DI13~16<br/>TEST_READY → BEAN_SELECTED"| MAIN
-    MAIN -->|"WAIT_NEW_ORDER에서 DI13"| TR
     TR -->|"/test 명령<br/>TEST_READY → execute_test"| TEST
-    TEST -->|"TEST_DONE · TEST_ERROR 후"| TR
-    MAIN -.->|"본 공정 중 예외"| ERR(["ERROR (screen 9)"]) --> TR
+    MAIN -.->|"본 공정 중 예외"| ERR(["ERROR (screen 9)<br/>→ TEST_READY"])
 ```
 
 도식에는 함수 호출과 상태 발행이 섞여 있습니다. 대문자(`TEST_READY`·`BEAN_SELECTED`·`WAIT_NEW_ORDER`·`TEST_DONE`·`TEST_ERROR`·`ERROR`)는 `/coffee_system/status` JSON의 `phase` 값입니다. 소문자(`bean_drop`…`final_drip`, `execute_test`)는 호출하는 함수입니다. 각 단계 함수도 실행 중에 자기 `phase`를 따로 발행합니다.
