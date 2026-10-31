@@ -2,7 +2,7 @@
 
 > 출처: 두산로보틱스 ROKEY 부트캠프(지능형 로보틱스 엔지니어 과정) 협동-1 프로젝트, 5인 팀 프로젝트의 제출 스냅샷입니다. 제출 코드는 그대로 두고 문서만 다시 정리했습니다.
 
-> ▶️ **[1분 시연 영상](https://youtu.be/17UW9-wpsBg)** — 이 프로젝트를 가장 빨리 파악할 수 있는 자료입니다.
+> ▶️ **[1분 시연 영상](https://youtu.be/17UW9-wpsBg)** — 이 프로젝트를 가장 빨리 파악할 수 있는 자료입니다. 사진과 함께 만든 과정·팀에서 일한 방식은 🖼️ [프로젝트 소개 페이지](https://gwanhuigim.github.io/cobot1.html)에 있습니다.
 
 Doosan **M0609** 협동로봇과 **OnRobot RG2** 그리퍼로 핸드드립 전 과정(원두 투입 → 분쇄 → 필터 투입 → 나선 드립 → 서빙)을 자동으로 수행하는 ROS 2 시스템입니다.
 사람이 손으로 하면 매번 흔들리는 나선 푸어링을 같은 궤적으로 반복하는 것이 목표였습니다.
@@ -432,7 +432,7 @@ ros2 run rokey web_ui                  # http://localhost:8000 (/test, /admin은
 | 증상 | 확인할 것 |
 |:---|:---|
 | `컨트롤러 서비스 연결 대기 중...` 반복 | bringup 실행 여부, `ros2 service list \| grep motion/move_joint` |
-| 단계 시작 직후 장비 오류 화면 | 2 s 안에 `/OnRobotRGInput` 미수신. 그리퍼 전원·이더넷·`192.168.1.1` |
+| 단계 시작 직후 장비 오류 화면 | 단계 시작 때 2 s(`GRIP_SIGNAL_STARTUP_WAIT_SEC`) 안에 `/OnRobotRGInput` 미수신(단계 중에는 1 s 끊김, `GRIP_SIGNAL_TIMEOUT_SEC`). 그리퍼 전원·이더넷·`192.168.1.1` |
 | 파지했는데 그립 실패 | `/onrobot/grip_detected` 값, `GRIP_EMPTY_CLOSED_POSITION_RAD` 재측정 |
 | TCP가 바뀌지 않음 | 펜던트에 `pot`/`mug`/`GripperDA_v1` 프리셋이 있는지 |
 | Real 모드 통신 실패 | 위 `sysctl` 적용 여부 |
